@@ -15,4 +15,6 @@
 # Nix build results
 result
 TODO.txt
-sled
+sleddb
+/db/
+/sled/

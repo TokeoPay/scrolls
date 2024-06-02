@@ -56,15 +56,21 @@ impl Reducer {
         utxo: &MultiEraOutput,
         tx: &MultiEraTx,
         output_ref: &(Hash<32>, u64),
-    ) -> Option<(String, String)> {
+    ) -> Option<(String, Option<String>, String)> {
         if let Some(address) = utxo.address().map(|addr| addr.to_string()).ok() {
             if self.config.filter.iter().any(|addr| address.eq(addr)) {
                 let mut data = serde_json::Value::Object(serde_json::Map::new());
                 let address_as_key = self.config.address_as_key.unwrap_or(false);
                 let key: String;
+                let mut child: Option<String> = None;
 
                 if address_as_key {
                     key = address;
+                    child = Some(format!(
+                        "{}#{}",
+                        hex::encode(output_ref.0.to_vec()),
+                        output_ref.1
+                    ));
                     data["tx_hash"] = serde_json::Value::String(hex::encode(output_ref.0.to_vec()));
                     data["output_index"] =
                         serde_json::Value::from(serde_json::Number::from(output_ref.1));
@@ -104,7 +110,7 @@ impl Reducer {
                 }
 
                 data["amount"] = serde_json::Value::Array(assets);
-                return Some((key, data.to_string()));
+                return Some((key, child, data.to_string()));
             }
         }
 
@@ -125,18 +131,23 @@ impl ReducerTrait for Reducer {
         for tx in block.txs().into_iter() {
             for consumed in tx.consumes().iter().map(|i| i.output_ref()) {
                 if let Some(utxo) = ctx.find_utxo(&consumed).ok() {
-                    if let Some((key, value)) =
+                    if let Some((key, child, value)) =
                         self.get_key_value(&utxo, &tx, &(consumed.hash().clone(), consumed.index()))
                     {
-                        commands.push(CRDTCommand::set_remove(prefix, &key.as_str(), value));
+                        commands.push(CRDTCommand::set_remove(
+                            prefix,
+                            &key.as_str(),
+                            child.as_deref(),
+                            value,
+                        ));
                     }
                 }
             }
 
             for (index, produced) in tx.produces() {
                 let output_ref = (tx.hash().clone(), index as u64);
-                if let Some((key, value)) = self.get_key_value(&produced, &tx, &output_ref) {
-                    commands.push(CRDTCommand::set_add(None, &key, value));
+                if let Some((key, child, value)) = self.get_key_value(&produced, &tx, &output_ref) {
+                    commands.push(CRDTCommand::set_add(None, &key, child.as_deref(), value));
                 }
             }
         }

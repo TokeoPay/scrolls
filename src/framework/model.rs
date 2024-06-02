@@ -49,6 +49,7 @@ impl BlockContext {
     }
 }
 
+pub type ChildSet = Option<String>;
 pub type Set = String;
 pub type Member = String;
 pub type Key = String;
@@ -84,8 +85,8 @@ impl From<serde_json::Value> for Value {
 #[derive(Clone, Debug, Deserialize)]
 #[non_exhaustive]
 pub enum CRDTCommand {
-    SetAdd(Set, Member),
-    SetRemove(Set, Member),
+    SetAdd(Set, ChildSet, Member),
+    SetRemove(Set, ChildSet, Member),
     SortedSetAdd(Set, Member, Delta),
     SortedSetRemove(Set, Member, Delta),
     TwoPhaseSetAdd(Set, Member),
@@ -101,22 +102,44 @@ pub enum CRDTCommand {
 }
 
 impl CRDTCommand {
-    pub fn set_add(prefix: Option<&str>, key: &str, member: String) -> CRDTCommand {
+    pub fn set_add(
+        prefix: Option<&str>,
+        key: &str,
+        child: Option<&str>,
+        member: String,
+    ) -> CRDTCommand {
         let key = match prefix {
             Some(prefix) => format!("{}.{}", prefix, key),
             None => key.to_string(),
         };
 
-        CRDTCommand::SetAdd(key, member)
+        let child = match (prefix, child) {
+            (Some(prefix), Some(parent)) => Some(format!("{}.{}", prefix, parent)),
+            (None, Some(parent)) => Some(format!("{}", parent)),
+            _ => None,
+        };
+
+        CRDTCommand::SetAdd(key, child, member)
     }
 
-    pub fn set_remove(prefix: Option<&str>, key: &str, member: String) -> CRDTCommand {
+    pub fn set_remove(
+        prefix: Option<&str>,
+        key: &str,
+        child: Option<&str>,
+        member: String,
+    ) -> CRDTCommand {
         let key = match prefix {
             Some(prefix) => format!("{}.{}", prefix, key),
             None => key.to_string(),
         };
 
-        CRDTCommand::SetRemove(key, member)
+        let child = match (prefix, child) {
+            (Some(prefix), Some(child)) => Some(format!("{}.{}", prefix, child)),
+            (None, Some(child)) => Some(format!("{}", child)),
+            _ => None,
+        };
+
+        CRDTCommand::SetRemove(key, child, member)
     }
 
     pub fn sorted_set_add(

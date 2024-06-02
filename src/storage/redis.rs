@@ -17,8 +17,7 @@ pub struct Worker {
 #[async_trait::async_trait(?Send)]
 impl gasket::framework::Worker<Stage> for Worker {
     async fn bootstrap(stage: &Stage) -> Result<Self, WorkerError> {
-        let manager =
-            RedisConnectionManager::new(stage.config.url.clone()).or_panic()?;
+        let manager = RedisConnectionManager::new(stage.config.url.clone()).or_panic()?;
         let pool = r2d2::Pool::builder().build(manager).or_panic()?;
 
         Ok(Self { pool })
@@ -31,6 +30,8 @@ impl gasket::framework::Worker<Stage> for Worker {
         let msg = stage.input.recv().await.or_panic()?;
         Ok(WorkSchedule::Unit(msg.payload))
     }
+
+    // /Address/{address}/Utxos/{TxHash#Index}
 
     async fn execute(&mut self, unit: &ChainEvent, stage: &mut Stage) -> Result<(), WorkerError> {
         let point = unit.point().clone();
@@ -66,12 +67,12 @@ impl gasket::framework::Worker<Stage> for Worker {
                                 .sadd(format!("{}.ts", key), value)
                                 .or_restart()?;
                         }
-                        model::CRDTCommand::SetAdd(key, value) => {
+                        model::CRDTCommand::SetAdd(key, _, value) => {
                             debug!(key, value, "adding");
 
                             conn.deref_mut().sadd(key, value).or_restart()?;
                         }
-                        model::CRDTCommand::SetRemove(key, value) => {
+                        model::CRDTCommand::SetRemove(key, _, value) => {
                             debug!(key, value, "removing");
 
                             conn.deref_mut().srem(key, value).or_restart()?;

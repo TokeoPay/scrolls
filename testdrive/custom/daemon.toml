@@ -13,12 +13,12 @@ connection_params = "redis://127.0.0.1:6379"
 [intersect]
 type = "Point"
 value = [
-    75763928,
-    "081ede3bfac7d736625db5d4ad6c8024b46c8630329bf9155930bc3f2f511f5c",
+  75763928,
+  "081ede3bfac7d736625db5d4ad6c8024b46c8630329bf9155930bc3f2f511f5c",
 ]
 
 [chain]
-type = "Mainnet"
+type = "mainnet"
 
 [policy]
 missing_data = "Skip"
